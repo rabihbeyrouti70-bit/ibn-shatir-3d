@@ -1,0 +1,28 @@
+{
+  "name": "محاكي القبة الفلكية ومواقيت الصلاة 3D — ابن الشاطر الدمشقي",
+  "short_name": "ابن الشاطر 3D",
+  "description": "تطبيق القبة الفلكية ومواقيت الصلاة ثلاثي الأبعاد المستقل — محاكاة كاملة لمدارات ابن الشاطر مع تدفق الزمن والقبلة",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#020617",
+  "background_color": "#020617",
+  "lang": "ar",
+  "dir": "rtl",
+  "categories": ["education", "utilities"],
+  "icons": [
+    {
+      "src": "icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

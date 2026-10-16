@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#020617">
+    <meta name="description" content="تطبيق القبة الفلكية ومواقيت الصلاة ثلاثي الأبعاد المستقل — محاكاة كاملة لمدارات ابن الشاطر الدمشقي مع تدفق الزمن الواقعي والفصول بمشهد ملء الشاشة.">
+    <title>محاكي القبة الفلكية ومواقيت الصلاة ثلاثي الأبعاد 3D — ابن الشاطر الدمشقي (ملء الشاشة)</title>
+    
+    <!-- Favicon & Icons -->
+    <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
+    <link rel="apple-touch-icon" href="icons/icon-192.svg">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Cairo:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Core Stylesheet -->
+    <link rel="stylesheet" href="css/main.css">
+
+    <!-- Standalone Fullscreen 3D Styles -->
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            background: #020617;
+            color: #F8FAFC;
+            font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #cosmos3DContainer {
+            position: absolute;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            max-width: none;
+            border-radius: 0;
+            border: none;
+            box-shadow: none;
+            overflow: hidden;
+            background: #020617;
+        }
+        #webgl-container {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Top Bar Enhancements */
+        .c3d-fs-topbar {
+            position: absolute;
+            top: 10px;
+            left: 12px;
+            right: 12px;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .c3d-fs-topbar > * {
+            pointer-events: auto;
+        }
+        /* Bottom Floating HUD Collapsible Drawer */
+        .c3d-fs-hud-drawer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 25;
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-top: 1.5px solid rgba(56, 189, 248, 0.4);
+            box-shadow: 0 -12px 45px rgba(0, 0, 0, 0.85);
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(calc(100% - 46px));
+            pointer-events: auto;
+        }
+        .c3d-fs-hud-drawer.expanded {
+            transform: translateY(0);
+        }
+        .c3d-fs-hud-header {
+            height: 46px;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            background: rgba(30, 41, 59, 0.9);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .c3d-fs-hud-header:hover {
+            background: rgba(51, 65, 85, 0.9);
+        }
+        .c3d-fs-hud-body {
+            max-height: 48vh;
+            overflow-y: auto;
+            padding: 14px 20px 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .hud-toggle-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85em;
+            font-weight: 800;
+            color: #38BDF8;
+        }
+
+        /* Responsive Adjustments for Mobile & Tablets */
+        @media (max-width: 900px) {
+            .c3d-fs-topbar {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            .c3d-fs-hud-body {
+                max-height: 58vh;
+            }
+        }
+    </style>
+
+    <!-- Astronomical Data & Global Cities Database -->
+    <script src="data/astro-data.js"></script>
+    <script src="data/cities.js"></script>
+
+    <!-- Three.js and OrbitControls -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Standalone Complete Bundle -->
+    <script defer src="js/bundle.js"></script>
+</head>
+<body>
+
+<!-- Root 3D Application Viewport -->
+<div id="cosmos3DContainer">
+    <!-- 3D WebGL Canvas Layer -->
+    <div id="webgl-container"></div>
+
+    <!-- Top Integrated Viewport Toolbar -->
+    <div class="c3d-toolbar">
+        <!-- Observer Location Group -->
+        <div class="c3d-toolgroup">
+            <label for="citySelect" style="color:var(--gold); font-weight:800; font-size:0.82em; display:flex; align-items:center; gap:4px;">📍 المرصد:</label>
+            <select id="citySelect" class="c3d-city-select" onchange="onCityChange(this.value)">
+                <optgroup label="🌟 المراصد والعواصم الإسلامية التاريخية">
+                    <option value="damascus" selected>دمشق — مرصد ابن الشاطر (33.51°N)</option>
+                    <option value="beirut">بيروت — عاصمة لبنان (33.89°N)</option>
+                    <option value="tripoli_lb">طرابلس الشام — لبنان (34.44°N)</option>
+                    <option value="mecca">مكة المكرمة — الكعبة المشرفة (21.42°N)</option>
+                    <option value="medina">المدينة المنورة (24.47°N)</option>
+                    <option value="jerusalem">القدس الشريف (31.78°N)</option>
+                    <option value="cairo">القاهرة — مرصد ابن يونس (30.04°N)</option>
+                    <option value="alexandria">الإسكندرية — مرصد بطلميوس (31.20°N)</option>
+                    <option value="baghdad">بغداد — مرصد بيت الحكمة (33.31°N)</option>
+                    <option value="riyadh">الرياض — شبه الجزيرة العربية (24.71°N)</option>
+                    <option value="tripoli_ly">طرابلس الغرب — ليبيا (32.89°N)</option>
+                    <option value="maragha">مراغة — مرصد الطوسي (37.39°N)</option>
+                    <option value="samarkand">سمرقند — مرصد ألغ بك (39.65°N)</option>
+                    <option value="cordoba">قرطبة — الأندلس (37.89°N)</option>
+                    <option value="istanbul">إسطنبول — مرصد تقي الدين (41.01°N)</option>
+                </optgroup>
+                <optgroup label="🌍 العواصم والمراصد العالمية البارزة">
+                    <option value="greenwich">لندن — مرصد غرينتش خط الصفر (51.48°N)</option>
+                    <option value="paris">باريس — مرصد كاسيني (48.86°N)</option>
+                    <option value="tokyo">طوكيو — المرصد الوطني الياباني (35.68°N)</option>
+                    <option value="newyork">نيويورك — الساحل الشرقي (40.71°N)</option>
+                    <option value="atacama">أتاكاما — تلسكوب ALMA العملاق (-23.03°S)</option>
+                    <option value="sydney">سيدني — نصف الكرة الجنوبي (-33.87°S)</option>
+                </optgroup>
+                <optgroup label="🌐 المراجع والمحاور الكونية الخاصة">
+                    <option value="equator">خط الاستواء — الفلك المستقيم (0.0°)</option>
+                    <option value="pole_n">القطب الشمالي — الفلك الدائر (+90.0°N)</option>
+                    <option value="pole_s">القطب الجنوبي — أنتاركتيكا (-90.0°S)</option>
+                </optgroup>
+                <option value="custom">⚙️ إحداثيات مخصصة / تصفح الخريطة (+465 مدينة)... 🗺️</option>
+            </select>
+            <button type="button" id="btnGpsLocation" class="btn-view" style="background:linear-gradient(135deg,#0d9488,#0f766e); border-color:#2dd4bf; color:#fff; font-weight:800; box-shadow:0 0 10px rgba(45,212,191,0.35);" onclick="detectGpsLocation()" title="تحديد موقعي الحالي تلقائياً عبر الأقمار الصناعية GPS وتوجيه القبة الفلكية والقبلة فوراً">
+                📍 موقعي (GPS)
+            </button>
+            <button type="button" id="btnOpenWorldMap" class="btn-view" style="background:linear-gradient(135deg,#0284c7,#2563eb); border-color:#38bdf8; color:#fff; font-weight:800; box-shadow:0 0 10px rgba(56,189,248,0.35);" onclick="openWorldMapModal()" title="فتح خريطة العالم التفاعلية والبحث عن أي مدينة حول العالم">
+                🗺️ الخريطة والبحث
+            </button>
+            <button type="button" id="btnTogglePrayerFocus" class="btn-view active" style="background:linear-gradient(135deg,#065f46,#047857); border-color:#10b981; color:#ecfdf5; font-weight:800; box-shadow:0 0 10px rgba(16,185,129,0.35);" onclick="activatePrayerPerspective()" title="منظور مواقيت الصلوات: التركيز على مدار الشمس اليومي وأقواس الصلوات وميكانيكا ابن الشاطر بحجم مقروء">
+                🕌 منظور مواقيت الصلوات
+            </button>
+            <div id="customCoordRow" class="custom-coord-row" style="display:none;">
+                <span style="font-size:0.8em; color:var(--gold);">عرض:</span>
+                <input type="number" id="inputLat" value="33.51" step="0.5" min="-90" max="90" oninput="onCustomCoordChange()" onchange="onCustomCoordChange()">
+                <span style="font-size:0.8em; color:var(--blue);">طول:</span>
+                <input type="number" id="inputLon" value="36.29" step="0.5" min="-180" max="180" oninput="onCustomCoordChange()" onchange="onCustomCoordChange()">
+            </div>
+        </div>
+
+        <!-- Simulation Time Speed Controller Group -->
+        <div class="c3d-toolgroup c3d-speed-toolgroup" id="c3dSpeedToolGroup">
+            <span style="color:#FBBF24; font-size:0.8em; font-weight:800; display:flex; align-items:center; gap:4px;">⏱️ محاكي الزمن:</span>
+            <select id="c3dSpeedModeSelect" class="btn-view" style="background:#0F172A; border-color:#F59E0B; color:#FDE047; font-weight:700; padding:2px 8px; cursor:pointer;" onchange="setC3DSpeedMode(this.value)" aria-label="اختيار سرعة محاكي الزمن">
+                <option value="realtime" selected>🔴 1. واقعي (موقع ووقت المدينة)</option>
+                <option value="hours">⏱️ 2. السرعة بالساعات (1 س/ث)</option>
+                <option value="days">📅 3. السرعة بالأيام (1 يوم/ث)</option>
+                <option value="months">🌕 4. السرعة بالشهور (شهر/ث)</option>
+            </select>
+            <button type="button" id="c3dBtnPlayPause" class="btn-view" style="padding:2px 8px; font-weight:800; color:#38BDF8;" onclick="togglePlay()" title="إيقاف / تشغيل تدفق الزمن" aria-label="تشغيل أو إيقاف الزمن">⏸️</button>
+        </div>
+
+        <!-- Camera Presets Group -->
+        <div class="c3d-toolgroup">
+            <span style="color:#94A3B8; font-size:0.8em; font-weight:bold;">👁️ الكاميرا:</span>
+            <select id="cameraPresetSelect" class="btn-view" style="background:#0F172A; border-color:#6366F1; color:#E0E7FF; font-weight:700; padding:2px 8px; cursor:pointer;" onchange="setCameraPreset(this.value)" aria-label="اختيار منظور الكاميرا">
+                <option value="prayers" selected>🕌 منظور مواقيت الصلوات (الافتراضي)</option>
+                <option value="orbit">🌌 كوني موسع</option>
+                <option value="perspective">📐 منظور مجسم متوازن</option>
+                <option value="horizon">🌅 منظور الأفق</option>
+                <option value="polaris">★ نجم القطب الشمالي</option>
+                <option value="sun">☀️ التركيز على الشمس</option>
+                <option value="moon">🌙 التركيز على القمر</option>
+                <option value="polar">🧭 عرض رأسي سمتي</option>
+            </select>
+            <button id="btnAutoRotate" class="btn-view" onclick="toggleAutoRotate()" aria-label="تبديل الدوران التلقائي" title="تشغيل / إيقاف التدوير التلقائي">🔄 تدوير</button>
+        </div>
+
+        <!-- Fullscreen Toggle Action -->
+        <div class="c3d-toolgroup" style="padding:4px 8px;">
+            <button class="btn-view" style="background:#059669; border-color:#34D399; color:#FFF; font-weight:800;" onclick="toggleCosmos3DFullscreen()" aria-label="عرض ملء الشاشة">⛶ ملء الشاشة</button>
+        </div>
+    </div>
+
+    <!-- Floating Simulation Speed Status Pill at Top Left below toolbar -->
+    <div id="c3dSpeedStatusPill" class="c3d-speed-status-pill">
+        <span id="c3dSpeedStatusText">🔴 <strong>واقعي:</strong> توقيت دمشق الآن 11:45 ص • مباشر (1 ث = 1 ث)</span>
+    </div>
+
+    <!-- Floating Hint Pill at Top Right below toolbar -->
+    <div class="c3d-hint-pill">
+        <span>💡 <strong>التحكم:</strong> سحب بالماوس للتدوير 360° | عجلة الماوس للتقريب | الزر الأيمن للإزاحة</span>
+    </div>
+
+    <!-- Floating Annual Timeline Days Navigation Bar -->
+    <div id="c3dAnnualTimelineBar" class="c3d-annual-timeline-bar" onclick="onAnnualTimelineBarClick(event)" aria-label="شريط التنقل بين أيام وشهور السنة الفلكية">
+        <div class="c3d-annual-top-row">
+            <div class="c3d-annual-date-info">
+                <span id="c3dAnnualDateBadge" class="c3d-annual-date-badge" title="اليوم والشهر المحدد">📅 21 آذار (مارس) • اليوم 80</span>
+                <span id="c3dAnnualSeasonTag" class="c3d-annual-season-tag">🌸 الاعتدال الربيعي • الحوت ♓</span>
+            </div>
+            <div class="c3d-annual-actions" style="display:flex; align-items:center; gap:4px;">
+                <div class="c3d-annual-milestones">
+                    <button type="button" class="btn-timeline-snap active" onclick="jumpToAnnualDay(80, 'الاعتدال الربيعي')" title="الاعتدال الربيعي (21 آذار)">🌸 ربيع</button>
+                    <button type="button" class="btn-timeline-snap" onclick="jumpToAnnualDay(172, 'الانقلاب الصيفي')" title="الانقلاب الصيفي (21 حزيران)">☀️ صيف</button>
+                    <button type="button" class="btn-timeline-snap" onclick="jumpToAnnualDay(266, 'الاعتدال الخريفي')" title="الاعتدال الخريفي (23 أيلول)">🍂 خريف</button>
+                    <button type="button" class="btn-timeline-snap" onclick="jumpToAnnualDay(355, 'الانقلاب الشتوي')" title="الانقلاب الشتوي (21 كانون الأول)">❄️ شتاء</button>
+                    <button type="button" class="btn-timeline-snap btn-today" onclick="jumpToAnnualDay('today')" title="العودة إلى اليوم الفعلي الحالي" style="color:#F59E0B; font-weight:800;">🔴 اليوم</button>
+                </div>
+                <button type="button" class="btn-timeline-toggle" onclick="toggleAnnualTimelineCollapse(event)" title="طي / توسيع شريط أيام السنة" aria-label="طي أو توسيع شريط أيام السنة">▾</button>
+            </div>
+        </div>
+        <div class="c3d-annual-slider-row">
+            <button type="button" class="btn-day-step" onclick="stepAnnualDay(-1)" title="اليوم السابق (-1 يوم)" aria-label="اليوم السابق">◀ يوم</button>
+            <div class="c3d-slider-track-container">
+                <input type="range" id="c3dAnnualDaySlider" class="c3d-annual-day-slider" min="1" max="365" step="0.05" value="80"
+                       onpointerdown="isDraggingAnnualTimeline = true"
+                       onpointerup="isDraggingAnnualTimeline = false; if(cosmos3DInitialized) updateAstronomy(currentDate);"
+                       ontouchstart="isDraggingAnnualTimeline = true"
+                       ontouchend="isDraggingAnnualTimeline = false; if(cosmos3DInitialized) updateAstronomy(currentDate);"
+                       onchange="isDraggingAnnualTimeline = false; if(cosmos3DInitialized) updateAstronomy(currentDate);"
+                       oninput="onAnnualDaySliderInput(this.value)"
+                       aria-label="شريط التنقل بين أيام السنة 1 إلى 365"
+                       title="اسحب للتنقل السلس بين جميع أيام وشهور السنة الـ 365">
+                <div class="c3d-month-tick-labels">
+                    <span onclick="jumpToAnnualDay(1, 'كانون 2')">كانون2</span>
+                    <span onclick="jumpToAnnualDay(32, 'شباط')">شباط</span>
+                    <span onclick="jumpToAnnualDay(60, 'آذار')">آذار</span>
+                    <span onclick="jumpToAnnualDay(91, 'نيسان')">نيسان</span>
+                    <span onclick="jumpToAnnualDay(121, 'أيار')">أيار</span>
+                    <span onclick="jumpToAnnualDay(152, 'حزيران')">حزيران</span>
+                    <span onclick="jumpToAnnualDay(182, 'تموز')">تموز</span>
+                    <span onclick="jumpToAnnualDay(213, 'آب')">آب</span>
+                    <span onclick="jumpToAnnualDay(244, 'أيلول')">أيلول</span>
+                    <span onclick="jumpToAnnualDay(274, 'تشرين 1')">تشرين1</span>
+                    <span onclick="jumpToAnnualDay(305, 'تشرين 2')">تشرين2</span>
+                    <span onclick="jumpToAnnualDay(335, 'كانون 1')">كانون1</span>
+                </div>
+            </div>
+            <button type="button" class="btn-day-step" onclick="stepAnnualDay(1)" title="اليوم التالي (+1 يوم)" aria-label="اليوم التالي">يوم ▶</button>
+        </div>
+    </div>
+
+    <!-- Bottom Center Floating Isha Telemetry Pill -->
+    <div id="c3dBottomPill" class="c3d-bottom-pill">
+        <div class="telem-item">
+            <span class="telem-lbl">🌇 الغروب:</span>
+            <span id="telemSunset" class="telem-val" style="color:#F59E0B;">06:00 PM</span>
+        </div>
+        <div class="telem-sep">•</div>
+        <div class="telem-item">
+            <span class="telem-lbl">🟠 الشافعي (16°):</span>
+            <span id="telemIsha16" class="telem-val" style="color:#FB923C;">07:17 PM</span>
+            <span id="telemIsha16Diff" class="telem-sub">(+77د)</span>
+        </div>
+        <div class="telem-sep">•</div>
+        <div class="telem-item">
+            <span class="telem-lbl">🟣 الحنفي (18°):</span>
+            <span id="telemIsha18" class="telem-val" style="color:#A78BFA;">07:27 PM</span>
+            <span id="telemIsha18Diff" class="telem-sub">(+87د)</span>
+        </div>
+        <div class="telem-sep">•</div>
+        <div class="telem-item telem-diff-highlight">
+            <span class="telem-lbl">⚡ الفارق:</span>
+            <span id="telemIshaDiff" class="telem-val" style="color:#38BDF8; font-weight:900;">10 دقائق</span>
+        </div>
+        <div class="telem-sep">•</div>
+        <button type="button" class="btn-season-action" onclick="jumpToSunsetTime()" title="ضبط الوقت لحظة الغروب">🌅 الغروب</button>
+        <button type="button" id="btnToggleSeasonTable" class="btn-season-action" onclick="toggleSeasonalComparisonTable()">📊 مقارنة</button>
+        <button type="button" id="btnToggle3DLabels" class="btn-season-action active" onclick="toggle3DLabels()" title="إظهار أو إخفاء وسوم العشائين من على الرسم ثلاثي الأبعاد">🏷️ وسوم 3D</button>
+        <button type="button" class="btn-season-action" onclick="toggleFsHudDrawer()" style="background:#0284C7; color:#FFF; font-weight:800;" title="فتح أو طي لوحة مواقيت الصلاة وشبكة العد التنازلي">🕌 المواقيت ▴</button>
+    </div>
+
+    <!-- Expandable Comparison Table Drawer -->
+    <div id="seasonalComparisonDrawer" class="seasonal-comparison-drawer" style="display:none;">
+        <table class="season-compare-table">
+            <thead>
+                <tr>
+                    <th>المدار الفلكي</th>
+                    <th>الميل (&delta;)</th>
+                    <th>وقت الغروب</th>
+                    <th>العشاء الشافعي (16°)</th>
+                    <th>العشاء الحنفي (18°)</th>
+                    <th>الفارق بينهما</th>
+                    <th>تأثير زاوية هبوط الشمس</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr id="rowCompareSummer">
+                    <td><strong style="color:#EF4444;">☀️ الانقلاب الصيفي (مدار السرطان)</strong></td>
+                    <td>+23.5&deg;</td>
+                    <td id="tdSummerSunset">07:07 PM</td>
+                    <td id="tdSummerIsha16">08:42 PM (+95د)</td>
+                    <td id="tdSummerIsha18">08:55 PM (+108د)</td>
+                    <td><span class="diff-tag summer">13 دقيقة</span></td>
+                    <td style="color:#FDA4AF; font-size:0.88em;">أطول شفق في السنة؛ مسار الهبوط مائل جداً فيتأخر غياب الشفق</td>
+                </tr>
+                <tr id="rowCompareEquinox">
+                    <td><strong style="color:#38BDF8;">⚖️ الاعتدالين (مدار الاستواء)</strong></td>
+                    <td>0.0&deg;</td>
+                    <td id="tdEquinoxSunset">06:00 PM</td>
+                    <td id="tdEquinoxIsha16">07:17 PM (+77د)</td>
+                    <td id="tdEquinoxIsha18">07:27 PM (+87د)</td>
+                    <td><span class="diff-tag equinox">10 دقائق</span></td>
+                    <td style="color:#BAE6FD; font-size:0.88em;">شفق متوسط معتدل؛ مسار الهبوط عمودي نسبياً على الأفق</td>
+                </tr>
+                <tr id="rowCompareWinter">
+                    <td><strong style="color:#34D399;">❄️ الانقلاب الشتوي (مدار الجدي)</strong></td>
+                    <td>-23.5&deg;</td>
+                    <td id="tdWinterSunset">04:53 PM</td>
+                    <td id="tdWinterIsha16">06:17 PM (+84د)</td>
+                    <td id="tdWinterIsha18">06:27 PM (+94د)</td>
+                    <td><span class="diff-tag winter">10 دقائق</span></td>
+                    <td style="color:#A7F3D0; font-size:0.88em;">أبكر غروب في السنة؛ يتقدم وقت العشائين مبكراً</td>
+                </tr>
+                <tr id="rowCompareCurrent" class="current-row">
+                    <td><strong style="color:#FBBF24;">📍 المدار الحالي المسحوب</strong></td>
+                    <td id="tdCurrDecl">0.0&deg;</td>
+                    <td id="tdCurrSunset">06:00 PM</td>
+                    <td id="tdCurrIsha16">07:17 PM (+77د)</td>
+                    <td id="tdCurrIsha18">07:27 PM (+87د)</td>
+                    <td><span id="tdCurrDiff" class="diff-tag current">10 دقائق</span></td>
+                    <td id="tdCurrNote" style="color:#FEF08A; font-size:0.88em;">موضع الشمس اللحظي المختار بالسلايدر</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Collapsible Fullscreen HUD & Prayer Times Drawer -->
+    <div id="c3dFsHudDrawer" class="c3d-fs-hud-drawer">
+        <div class="c3d-fs-hud-header" onclick="toggleFsHudDrawer()">
+            <div class="hud-toggle-pill">
+                <span>🕌 مواقيت الصلاة والرصد اللحظي للرُبع المُجَيَّب</span>
+                <span id="hudSunTwilightStatus" class="prayer-status-chip">☀️ نهار</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span class="c3d-badge" style="background:rgba(217,119,6,0.25); color:var(--gold); border:1px solid rgba(245,158,11,0.4);" id="hudCityName">دمشق (33.51°N)</span>
+                <span id="hudDrawerArrow" style="font-size:0.9em; color:#38BDF8; font-weight:bold;">▴ فتح اللوحة</span>
+            </div>
+        </div>
+
+        <div class="c3d-fs-hud-body">
+            <!-- Astronomical Telemetry Row -->
+            <div style="display:flex; flex-wrap:wrap; gap:14px; background:rgba(2,6,23,0.7); padding:10px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
+                <div class="c3d-telemetry-row" style="flex:1; min-width:180px;">
+                    <span class="c3d-telemetry-label">التاريخ والوقت:</span>
+                    <span id="hudDateTime" class="c3d-telemetry-val gold">--</span>
+                </div>
+                <div class="c3d-telemetry-row" style="flex:1; min-width:150px;">
+                    <span class="c3d-telemetry-label">ميل الشمس (δ):</span>
+                    <span id="hudSunDecl" class="c3d-telemetry-val gold">--</span>
+                </div>
+                <div class="c3d-telemetry-row" style="flex:1; min-width:150px;">
+                    <span class="c3d-telemetry-label">ارتفاع الشمس:</span>
+                    <span id="hudSunAlt" class="c3d-telemetry-val gold">--</span>
+                </div>
+                <div class="c3d-telemetry-row" style="flex:1; min-width:180px;">
+                    <span class="c3d-telemetry-label">سمت الشروق/الغروب:</span>
+                    <span id="hudSunriseAz" class="c3d-telemetry-val gold">--</span>
+                </div>
+            </div>
+
+            <!-- Prayer Grid Cards -->
+            <div class="prayer-grid">
+                <div id="hudCardFajr" class="prayer-card prayer-fajr">
+                    <div class="prayer-card-header">
+                        <span class="prayer-icon">🌅</span>
+                        <span class="prayer-name">الفجر</span>
+                        <span class="prayer-angle">18°</span>
+                    </div>
+                    <div id="hudTimeFajr" class="prayer-time">--:--</div>
+                    <div id="hudDurFajr" class="prayer-dur">⏱️ --</div>
+                </div>
+                <div id="hudCardSunrise" class="prayer-card prayer-sunrise">
+                    <div class="prayer-card-header">
+                        <span class="prayer-icon">☀️</span>
+                        <span class="prayer-name">الشروق</span>
+                    </div>
+                    <div id="hudTimeSunrise" class="prayer-time">--:--</div>
+                    <div id="hudDurSunrise" class="prayer-dur">⏱️ --</div>
+                </div>
+                <div id="hudCardDhuha" class="prayer-card prayer-dhuha">
+                    <div class="prayer-card-header">
+                        <span class="prayer-icon">🌤️</span>
+                        <span class="prayer-name">الضحى</span>
+                        <span class="prayer-angle">5°</span>
+                    </div>
+                    <div id="hudTimeDhuha" class="prayer-time">--:--</div>
+                    <div id="hudDurDhuha" class="prayer-dur">⏱️ --</div>
+                </div>
+                <div id="hudCardDuhr" class="prayer-card prayer-duhr">
+                    <div class="prayer-card-header">
+                        <span class="prayer-icon">☀️</span>
+                        <span class="prayer-name">الظهر</span>
+                        <span class="prayer-angle">الزوال</span>
+                    </div>
+                    <div id="hudTimeDuhr" class="prayer-time">--:--</div>
+                    <div id="hudDurDuhr" class="prayer-dur">⏱️ --</div>
+                </div>
+                <div id="hudCardAsr" class="prayer-card prayer-asr">
+                    <div class="prayer-card-header">
+                        <span class="prayer-icon">🌤️</span>
+                        <span class="prayer-name">العصر (شافعي)</span>
+                        <span class="prayer-angle">الظل=1</span>
+                    </div>
+                    <div id="hudTimeAsr" class="prayer-time">--:--</div>
+                    <div id="hudDurAsr" class="prayer-dur">⏱️ --</div>
+                </div>
+                <div id="hudCardAsrHanafi" class="prayer-card prayer-asr-hanafi">
+                    <div class="prayer-card-header">
+                        <span class="prayer-icon">🌤️</span>
+                        <span class="prayer-name">العصر (حنفي)</span>
+                        <span class="prayer-angle">الظل=2</span>
+                    </div>
+                    <div id="hudTimeAsrHanafi" class="prayer-time">--:--</div>
+                    <div id="hudDurAsrHanafi" class="prayer-dur">⏱️ --</div>
+                </div>
+                <div id="hudCardSunset" class="prayer-card prayer-sunset">
+                    <div class="prayer-card-header">
+                        <span class="prayer-icon">🌇</span>
+                        <span class="prayer-name">المغرب</span>
+                        <span class="prayer-angle">الغروب</span>
+                    </div>
+                    <div id="hudTimeSunset" class="prayer-time">--:--</div>
+                    <div id="hudDurSunset" class="prayer-dur">⏱️ --</div>
+                </div>
+                <div id="hudCardIshaShafi" class="prayer-card prayer-isha-shafi">
+                    <div class="prayer-card-header">
+                        <span class="prayer-icon">🟠</span>
+                        <span class="prayer-name">العشاء (شافعي)</span>
+                        <span class="prayer-angle">16°</span>
+                    </div>
+                    <div id="hudTimeIshaShafi" class="prayer-time">--:--</div>
+                    <div id="hudDurIshaShafi" class="prayer-dur">⏱️ --</div>
+                </div>
+                <div id="hudCardIshaa" class="prayer-card prayer-ishaa">
+                    <div class="prayer-card-header">
+                        <span class="prayer-icon">🌌</span>
+                        <span class="prayer-name">العشاء (حنفي)</span>
+                        <span class="prayer-angle">18°</span>
+                    </div>
+                    <div id="hudTimeIshaa" class="prayer-time">--:--</div>
+                    <div id="hudDurIshaa" class="prayer-dur">⏱️ --</div>
+                </div>
+            </div>
+
+            <!-- Detailed Asr and Isha Notes -->
+            <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:0.82em; color:#CBD5E1;">
+                <div style="flex:1; min-width:260px; background:rgba(249,115,22,0.1); border:1px solid rgba(249,115,22,0.3); border-radius:10px; padding:8px 12px;">
+                    <strong style="color:#FB923C;">⚖️ فارق العصرين (الشافعي والحنفي):</strong>
+                    <span id="hudAsrDiffTime" style="color:#FFF; font-weight:bold;">--</span>
+                    <div id="hudAsrDetails" style="font-size:0.9em; color:#E2E8F0; margin-top:2px;">ظل المثل (الشافعي) ثم ظل المثلين (الحنفي).</div>
+                </div>
+                <div style="flex:1; min-width:260px; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); border-radius:10px; padding:8px 12px;">
+                    <strong style="color:#818CF8;">🌌 فارق العشائين (الشفقين الأحمر والأبيض):</strong>
+                    <span id="hudIshaDiffTime" style="color:#FFF; font-weight:bold;">--</span>
+                    <div id="hudIshaDetails" style="font-size:0.9em; color:#E2E8F0; margin-top:2px;">مغيب الشفق الأحمر (16°) ثم مغيب الشفق الأبيض (18°).</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- World Map & City Search Modal -->
+<div id="worldMapModal" onclick="if(event.target===this) closeWorldMapModal()">
+    <div class="map-dialog-box" onclick="event.stopPropagation()">
+        <div class="map-modal-header">
+            <div>
+                <h3 class="map-modal-title">🗺️ خريطة العالم واختيار موقع الراصد الفلكي</h3>
+                <p style="color:var(--subtext); font-size:0.85em; margin:4px 0 0 0;">
+                    انقر على أي نقطة على الخريطة لتحديد خط العرض والطول، أو ابحث في قاعدة بيانات تضم أكثر من 465 مدينة ومرصداً فلكياً حول العالم.
+                </p>
+            </div>
+            <button class="map-modal-close" onclick="closeWorldMapModal()" title="إغلاق">✕</button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="map-search-bar">
+            <div class="map-search-inner">
+                <span style="font-size:1.15em;">🔍</span>
+                <input type="text" id="mapSearchInput" class="map-search-input" placeholder="ابحث في أكثر من 465 مدينة وعاصمة ومرصد فلكي (مثلاً: دمشق، مكة، الرياض، القاهرة، فاس، باريس، طوكيو...)" autocomplete="off" oninput="onMapSearchInput(this.value)">
+                <button type="button" id="btnClearMapSearch" style="display:none; background:none; border:none; color:#94A3B8; cursor:pointer; font-size:1.1em;" onclick="clearMapSearch()">✕</button>
+            </div>
+            <div id="mapSearchResults" class="map-search-results"></div>
+        </div>
+
+        <!-- Quick Observatories Chips -->
+        <div class="map-obs-chips">
+            <span style="color:var(--gold); font-size:0.82em; font-weight:bold;">✨ أشهر المراصد الفلكية:</span>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('damascus')">📍 مرصد دمشق (ابن الشاطر)</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('beirut')">🌲 بيروت (لبنان)</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('tripoli_lb')">🏰 طرابلس الشام (لبنان)</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('mecca')">🕋 مكة المكرمة</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('medina')">🕌 المدينة المنورة</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('jerusalem')">🕊️ القدس الشريف</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('cairo')">🔭 القاهرة (ابن يونس)</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('alexandria')">📜 الإسكندرية (بطلميوس)</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('baghdad')">🏛️ بغداد (بيت الحكمة)</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('maragha')">🌟 مراغة (الطوسي)</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('samarkand')">📐 سمرقند (ألغ بك)</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('cordoba')">🏰 قرطبة (ابن رشد)</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('toledo')">📖 طليطلة (الزرقالي)</button>
+            <button type="button" class="obs-chip" onclick="selectPredefinedCity('istanbul')">⚙️ إسطنبول (تقي الدين)</button>
+        </div>
+
+        <!-- Interactive SVG World Map Container -->
+        <div class="map-viewport-wrapper">
+            <svg id="worldMapSvg" class="map-svg-element" viewBox="0 0 1000 500" preserveAspectRatio="none">
+                <rect width="1000" height="500" fill="#091124"/>
+                <g stroke="#1E3A8A" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45">
+                    <line x1="83.3" y1="0" x2="83.3" y2="500"/>
+                    <line x1="166.7" y1="0" x2="166.7" y2="500"/>
+                    <line x1="250" y1="0" x2="250" y2="500"/>
+                    <line x1="333.3" y1="0" x2="333.3" y2="500"/>
+                    <line x1="416.7" y1="0" x2="416.7" y2="500"/>
+                    <line x1="583.3" y1="0" x2="583.3" y2="500"/>
+                    <line x1="666.7" y1="0" x2="666.7" y2="500"/>
+                    <line x1="750" y1="0" x2="750" y2="500"/>
+                    <line x1="833.3" y1="0" x2="833.3" y2="500"/>
+                    <line x1="916.7" y1="0" x2="916.7" y2="500"/>
+                </g>
+                <line x1="500" y1="0" x2="500" y2="500" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="4,4" opacity="0.7"/>
+                <line x1="0" y1="65.1" x2="1000" y2="65.1" stroke="#06B6D4" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.5"/>
+                <line x1="0" y1="434.9" x2="1000" y2="434.9" stroke="#06B6D4" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.5"/>
+                <line x1="0" y1="184.9" x2="1000" y2="184.9" stroke="#EAB308" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
+                <line x1="0" y1="315.1" x2="1000" y2="315.1" stroke="#EAB308" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
+                <line x1="0" y1="250" x2="1000" y2="250" stroke="#F59E0B" stroke-width="1.5" opacity="0.85"/>
+                <g id="worldMapContinentsGroup" fill="#1E293B" stroke="#334155" stroke-width="0.7" opacity="0.85"></g>
+                <g id="worldMapObservatoriesGroup"></g>
+                <g id="worldMapPin" transform="translate(600.8, 156.9)" style="filter: drop-shadow(0 0 6px rgba(239,68,68,0.85));">
+                    <circle cx="0" cy="0" r="18" fill="none" stroke="#EF4444" stroke-width="2" class="map-pin-pulse"/>
+                    <line x1="-16" y1="0" x2="16" y2="0" stroke="#F59E0B" stroke-width="1.5" opacity="0.85"/>
+                    <line x1="0" y1="-16" x2="0" y2="16" stroke="#F59E0B" stroke-width="1.5" opacity="0.85"/>
+                    <circle cx="0" cy="0" r="7" fill="none" stroke="#F59E0B" stroke-width="2"/>
+                    <circle cx="0" cy="0" r="3.5" fill="#EF4444"/>
+                </g>
+            </svg>
+            <div id="mapHoverCoords" class="map-hover-badge">🌐 حرّك المؤشر أو انقر على الخريطة</div>
+        </div>
+
+        <!-- Coordinates Inputs -->
+        <div class="map-control-grid">
+            <div class="map-coord-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:bold; color:var(--gold); font-size:0.88em;">📐 خط العرض (Latitude &phi;):</span>
+                    <span id="modalLatDirection" style="font-size:0.78em; color:#38BDF8; font-weight:bold;">شمالاً (N)</span>
+                </div>
+                <div class="map-coord-input-row">
+                    <input type="number" id="modalInputLat" class="map-num-input" value="33.51" step="0.1" min="-90" max="90" oninput="onModalManualCoordInput()">
+                    <span style="font-size:0.85em; color:#94A3B8;">درجة</span>
+                    <div style="display:flex; gap:4px; margin-right:auto;">
+                        <button type="button" class="map-step-btn" onclick="adjustModalCoord('lat', -5)">-5°</button>
+                        <button type="button" class="map-step-btn" onclick="adjustModalCoord('lat', -1)">-1°</button>
+                        <button type="button" class="map-step-btn" onclick="adjustModalCoord('lat', 1)">+1°</button>
+                        <button type="button" class="map-step-btn" onclick="adjustModalCoord('lat', 5)">+5°</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="map-coord-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:bold; color:#38BDF8; font-size:0.88em;">🧭 خط الطول (Longitude &lambda;):</span>
+                    <span id="modalLonDirection" style="font-size:0.78em; color:var(--gold); font-weight:bold;">شرقاً (E)</span>
+                </div>
+                <div class="map-coord-input-row">
+                    <input type="number" id="modalInputLon" class="map-num-input" value="36.29" step="0.1" min="-180" max="180" oninput="onModalManualCoordInput()">
+                    <span style="font-size:0.85em; color:#94A3B8;">درجة</span>
+                    <div style="display:flex; gap:4px; margin-right:auto;">
+                        <button type="button" class="map-step-btn" onclick="adjustModalCoord('lon', -5)">-5°</button>
+                        <button type="button" class="map-step-btn" onclick="adjustModalCoord('lon', -1)">-1°</button>
+                        <button type="button" class="map-step-btn" onclick="adjustModalCoord('lon', 1)">+1°</button>
+                        <button type="button" class="map-step-btn" onclick="adjustModalCoord('lon', 5)">+5°</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="map-coord-card" style="grid-column: 1 / -1; background:rgba(15, 23, 42, 0.75); border-color:rgba(99, 102, 241, 0.35);">
+                <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:240px;">
+                        <span style="font-weight:bold; color:var(--gold); font-size:0.88em; white-space:nowrap;">🏷️ اسم الموقع:</span>
+                        <input type="text" id="modalInputCityName" value="دمشق (مرصد ابن الشاطر)" style="background:#1E293B; border:1px solid rgba(255,255,255,0.2); color:#FFF; font-family:inherit; font-size:0.88em; padding:4px 10px; border-radius:8px; flex:1;" placeholder="اسم المدينة أو الموقع">
+                    </div>
+                    <div id="modalAstroSummary" style="display:flex; flex-wrap:wrap; gap:12px; font-size:0.82em; color:#E2E8F0;">
+                        <span>★ ارتفاع القطب: <strong id="modalSumPolaris" style="color:#38BDF8;">33.5°</strong></span>
+                        <span>☀️ أقصى شمس صيفاً: <strong id="modalSumSummer" style="color:#F59E0B;">79.9°</strong></span>
+                        <span>❄️ أدنى شمس شتاءً: <strong id="modalSumWinter" style="color:#34D399;">33.1°</strong></span>
+                        <span>🌍 <strong id="modalSumHemisphere" style="color:#C084FC;">نصف الكرة الشمالي</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-modal-actions">
+            <button type="button" class="btn-map-cancel" onclick="closeWorldMapModal()">إلغاء</button>
+            <button type="button" class="btn-map-apply" onclick="confirmWorldMapSelection()">
+                ✅ تطبيق وتوجيه القبة الفلكية الآن
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Toast Notification -->
+<div id="c3dToast">📍 تم توجيه القبة الفلكية بنجاح إلى: دمشق</div>
+
+<script>
+    // Toggle Bottom HUD Drawer
+    function toggleFsHudDrawer() {
+        const drawer = document.getElementById('c3dFsHudDrawer');
+        const arrow = document.getElementById('hudDrawerArrow');
+        if (!drawer) return;
+        const isExp = drawer.classList.toggle('expanded');
+        if (arrow) {
+            arrow.innerText = isExp ? '▾ طي اللوحة' : '▴ فتح اللوحة';
+        }
+    }
+
+    // Register PWA Service Worker for Offline Mobile Support
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                console.log('PWA ServiceWorker registered with scope:', reg.scope);
+                reg.update();
+            }).catch(err => {
+                console.warn('PWA ServiceWorker registration failed:', err);
+            });
+        });
+    }
+</script>
+
+</body>
+</html>
